@@ -21,8 +21,13 @@ def normalize(string_to_normalize):
     Charactes other then letters and digits are replaced with "_" """
     global file_extension
     global file_name
+    global item
     result = ""
-    file_name, file_extension = os.path.splitext(string_to_normalize) # separates file name and file extension 
+    if item.is_file(): #checks if item is a file
+        file_name, file_extension = os.path.splitext(string_to_normalize) # separates file name and file extension
+    else:
+        file_name = item.name # if item is a folder there is no need to separate an extension 
+        file_extension = "" #empty string just so it works with the rest of the code 
     for character in file_name: # only file name is modified
         if character in polish_characters: #changes polish characters to latin
             character = polish_characters[character]
@@ -48,35 +53,54 @@ def sort_out_files(path):
     -funcion unpackes archives
     -normalize file names and moves them to designanted folders
     -doesnt change a name of a file with unknown extension"""
+    global item
+    global archive_folders_to_ignore
     for item in path.iterdir():
+        new_item_name = normalize(item.name) #generating new name, also generating separated file name and extension
         if item.is_dir(): #checks if item is a folder
-            if item.name in designated_folders.keys(): #ignoring certain folders
+            if item.name in designated_folders.keys() or item.name == "Unknown": #ignoring certain folders
                 continue
             else:
-                sort_out_files(item)  # going into subfolder
-                if len(os.listdir(item)) == 0: #checks if folder is empty and deletes it
+                sort_out_files(item)  # going into subfolder      
+        elif item.is_file(): #checks if item is a file
+            if file_extension.lstrip(".").lower() not in known_extensions: # determine if its file with unknown extension
+                global unknown_extensions_found
+                unknown_extensions_found.add(file_extension.lstrip(".")) #adds unknown extension to a set to create a raport later on
+                if not Path(f'{sys.argv[1]}\\Unknown\\').exists(): #checks if Folder Unknown to exist and create it if necesary
+                    os.makedirs(Path(f'{sys.argv[1]}\\Unknown')) #create folder to move a file
+                shutil.move(item, Path(f'{sys.argv[1]}\\Unknown\\{item.name}')) # move file to new location without changing a name
+                continue
+            else: #code for files with known extension
+                known_extensions_found.add(file_extension.lstrip(".").lower()) #adds known extension to a set to create a raport later on       
+                if file_extension.lstrip(".").lower() in archive_extensions: #check if file is an archive
+                    if not Path(f'{sys.argv[1]}\\Archives\\').exists(): #checks if Folder Unknown to exist and create it if necesary
+                        os.makedirs(Path(f'{sys.argv[1]}\\Archives')) #create folder to move a file
+                    shutil.unpack_archive(item, Path(f'{sys.argv[1]}\\Archives\\{file_name}')) #unpack archive in subfolder with designated name
+                    os.remove(item) #delete unpacked file
+                    continue
+                else: #not an archive
+                    for data_type, extension_list in designated_folders.items(): #to determine type of a file
+                        if file_extension.lstrip(".").lower() in extension_list:
+                            if not Path(f'{sys.argv[1]}\{data_type}\\').exists(): #checks if Folder to move exist and create it if necesary
+                                os.makedirs(Path(f'{sys.argv[1]}\{data_type}')) #create folder to move a file
+                            shutil.move(item, Path(f'{sys.argv[1]}\{data_type}\{new_item_name}')) # move file to new location with new name
+
+
+def delete_empty_folders(path):
+    """Takes directory as an argument
+    Method delete empty folders in a given directory
+    Ignores designated folders"""
+    for item in path.iterdir():
+        if item.is_dir(): #checks if item is a folder
+            if item.name in designated_folders.keys() or item.name == "Unknown": #ignoring certain folders
+                continue
+            else:                
+                if len(os.listdir(item)) == 0: #checks if folder is empty
                     print(f"{item.name} is an empty folder. Deleting {item.name}")
                     os.rmdir(item)
-        new_item_name = normalize(item.name) #generating new name, also generating separated file name and extension
-        if item.is_file() and file_extension.lstrip(".").lower() not in known_extensions: # determine if its file with unknown extension
-            global unknown_extensions_found
-            unknown_extensions_found.add(file_extension.lstrip(".")) #adds unknown extension to a set to create a raport later on
-            if not Path(f'{sys.argv[1]}\\Unknown\\').exists(): #checks if Folder Unknown to exist and create it if necesary
-                os.makedirs(Path(f'{sys.argv[1]}\\Unknown')) #create folder to move a file
-            shutil.move(item, Path(f'{sys.argv[1]}\\Unknown\\{item.name}')) # move file to new location without changing a name
-            continue
-        if item.is_file():
-            known_extensions_found.add(file_extension.lstrip(".").lower()) #adds known extension to a set to create a raport later on       
-        if file_extension.lstrip(".").lower() in archive_extensions: #check if file is an archive
-            shutil.unpack_archive(item, Path(f'{sys.argv[1]}\{file_name}')) #unpack archive in subfolder with designated name
-            os.remove(item) #delete unpacked file
-            continue
-        for data_type, extension_list in designated_folders.items(): #determine type of a file
-            if file_extension.lstrip(".").lower() in extension_list:
-                print(data_type)
-                if not Path(f'{sys.argv[1]}\{data_type}\\').exists(): #checks if Folder to move exist and create it if necesary
-                    os.makedirs(Path(f'{sys.argv[1]}\{data_type}')) #create folder to move a file
-                shutil.move(item, Path(f'{sys.argv[1]}\{data_type}\{new_item_name}')) # move file to new location with new name
+                else:
+                    delete_empty_folders(item)  # going into subfolder
+                    os.rmdir(item) #delete a folder when all subfolders are gone
 
 def create_report():
     """Funcions prints report of found extension and gives files list"""
@@ -101,4 +125,6 @@ def create_report():
 
 check_argument()
 sort_out_files(Path(sys.argv[1]))
+delete_empty_folders(Path(sys.argv[1]))
 create_report()
+exit()
