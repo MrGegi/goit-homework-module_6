@@ -3,18 +3,17 @@ import re
 import os
 from pathlib import Path
 import shutil
-image_extensions = ("jpeg", "png", "jpg", "svg")
-video_extensions = ("avi", "mp4", "mov", "mkv")
-doc_extensions = ("doc", "docx", "txt", "pdf", "xlsx", "pptx")
-audio_extensions = ("mp3", "ogg", "wav", "amr")
-archive_extensions = ("zip", "gz", "tar")
-unknown_extensions = ()
-known_extensions = ()
-known_extensions = (image_extensions + video_extensions + doc_extensions + audio_extensions + archive_extensions + unknown_extensions)
+IMAGE_EXTENSIONS = ("jpeg", "png", "jpg", "svg")
+VIDEO_EXTENSIONS = ("avi", "mp4", "mov", "mkv")
+DOC_EXTENSIONS = ("doc", "docx", "txt", "pdf", "xlsx", "pptx")
+AUDIO_EXTENSIONS = ("mp3", "ogg", "wav", "amr")
+ARCHIVE_EXTENSIONS = ("zip", "gz", "tar")
+UNKNOWN_EXTENSIONS = ()
+KNOWN_EXTENSIONS = (IMAGE_EXTENSIONS + VIDEO_EXTENSIONS + DOC_EXTENSIONS + AUDIO_EXTENSIONS + ARCHIVE_EXTENSIONS + UNKNOWN_EXTENSIONS)
+DESIGNATED_FOLDERS = {"Images": IMAGE_EXTENSIONS, "Video": VIDEO_EXTENSIONS, "Documents": DOC_EXTENSIONS, "Audio": AUDIO_EXTENSIONS, "Archives": ARCHIVE_EXTENSIONS, "Unknown": UNKNOWN_EXTENSIONS}
+POLISH_CHARACTERS = {"Ą": "A", "Ć": "C", "Ę": "E", "Ł": "L", "Ń": "N", "Ó": "O", "Ś": "S", "Ź": "Z", "Ż": "Z", "ą": "a", "ć": "c", "ę": "e", "ł": "l", "ń": "n", "ó": "o", "ś": "s", "ź": "z", "ż": "z"}
 known_extensions_found = set()
 unknown_extensions_found = set()
-designated_folders = {"Images": image_extensions, "Video": video_extensions, "Documents": doc_extensions, "Audio": audio_extensions, "Archives": archive_extensions, "Unknown": unknown_extensions}
-polish_characters = {"Ą": "A", "Ć": "C", "Ę": "E", "Ł": "L", "Ń": "N", "Ó": "O", "Ś": "S", "Ź": "Z", "Ż": "Z", "ą": "a", "ć": "c", "ę": "e", "ł": "l", "ń": "n", "ó": "o", "ś": "s", "ź": "z", "ż": "z"}
 
 def normalize(string_to_normalize):
     """This method takes string as an input and returns altered string.
@@ -25,8 +24,8 @@ def normalize(string_to_normalize):
     file_name, file_extension = os.path.splitext(string_to_normalize) # separates file name and file extension
     file_extension = file_extension.lstrip(".")
     for character in file_name: # only file name is modified
-        if character in polish_characters: #changes polish characters to latin
-            character = polish_characters[character]
+        if character in POLISH_CHARACTERS: #changes polish characters to latin
+            character = POLISH_CHARACTERS[character]
         if not re.search("\w", character): #charactes other then letters, digits and "_" gets replaced with "_"
             character = "_"
         modified_full_name += character
@@ -52,14 +51,14 @@ def going_through_folders_and_sorting_files_out(path):
     -doesnt change a name of a file with unknown extension"""
     for item in path.iterdir():
         if item.is_dir(): #checks if item is a folder
-            if item.name in designated_folders.keys(): #ignoring certain folders
+            if item.name in DESIGNATED_FOLDERS.keys(): #ignoring certain folders
                 continue
             else:
                 going_through_folders_and_sorting_files_out(item)  # going into subfolder
                 continue      
         else: #item is a file
             if check_if_extension_is_known(item.name): #check if extension is known
-                if normalize(item.name)[2].lower() in archive_extensions: #checks if file is an archive
+                if normalize(item.name)[2].lower() in ARCHIVE_EXTENSIONS: #checks if file is an archive
                     move_archive_file(item)
                 else: # file with known extension, but not an archive
                     move_known_file(item)
@@ -73,7 +72,7 @@ def check_if_extension_is_known(name):
     """Method takes a string (file name) as an argument
     Returns True/False depending if extension is known"""
     file_extension = normalize(name)[2] #generating file extension
-    if file_extension.lower() in known_extensions:
+    if file_extension.lower() in KNOWN_EXTENSIONS:
         return True
     else:
         return False
@@ -106,7 +105,7 @@ def move_known_file(item):
     Method determine a file type and moves it to a designated folder with new, normalized name
     Also adds an extension to a set to create a report later"""
     new_full_name, new_file_name, file_extension = normalize(item.name) #generating new name, also generating separated file name and extension
-    for data_type, extension_list in designated_folders.items(): #to determine type of a file
+    for data_type, extension_list in DESIGNATED_FOLDERS.items(): #to determine type of a file
         if file_extension.lower() in extension_list:
             if not Path(f'{sys.argv[1]}\{data_type}\\').exists(): #checks if Folder to move exist and create it if necesary
                 os.makedirs(Path(f'{sys.argv[1]}\{data_type}')) #create folder to move a file
@@ -120,7 +119,7 @@ def delete_empty_folders(path):
     Ignores designated folders"""
     for item in path.iterdir():
         if item.is_dir(): #checks if item is a folder
-            if item.name in designated_folders.keys(): #ignoring certain folders
+            if item.name in DESIGNATED_FOLDERS.keys(): #ignoring certain folders
                 continue
             else:                
                 if len(os.listdir(item)) == 0: #checks if folder is empty
@@ -152,7 +151,7 @@ def extensions_found_report():
 
 def file_list_report():
     """Method prints complete file list"""
-    for folder in designated_folders: #going through main folders
+    for folder in DESIGNATED_FOLDERS: #going through main folders
         if folder == "Archives":
             if Path(f'{sys.argv[1]}\{folder}\\').exists():
                 print('|{:^80}|'.format("-"*80))
